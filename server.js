@@ -20,10 +20,10 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==='POST'&&url.pathname==='/api/book'){
     let body='';for await(const chunk of req)body+=chunk;let b;try{b=JSON.parse(body);}catch{res.writeHead(400);return res.end(JSON.stringify({error:'Некорректные данные'}));}
-    if(!b.date||!b.time||!b.service||!b.name||!b.phone||!slotsFor(b.date).includes(b.time)){res.writeHead(400);res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({error:'Проверьте заполнение формы и выбранное время.'}));}
+    if(!b.date||!b.time||!b.service||!b.name||!b.contact||!slotsFor(b.date).includes(b.time)){res.writeHead(400);res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({error:'Проверьте заполнение формы и выбранное время.'}));}
     const bookings=readBookings();if(bookings.some(x=>x.date===b.date&&x.time===b.time)){res.writeHead(409,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Это окошко уже заняли. Выберите другое время.'}));}
     const item={...b,createdAt:new Date().toISOString()};bookings.push(item);writeBookings(bookings);
-    const msg=`💅 НОВАЯ ЗАПИСЬ — TITOVA NAILS\n\nДата: ${b.date}\nВремя: ${b.time}\nУслуга: ${b.service}\nИмя: ${b.name}\nТелефон: ${b.phone}\n\nОтветьте клиенту для подтверждения записи.`;
+    const msg=`💅 НОВАЯ ЗАПИСЬ — TITOVA NAILS\n\nДата: ${b.date}\nВремя: ${b.time}\nУслуга: ${b.service}\nИмя: ${b.name}\nКонтакт для связи: ${b.contact}\n\nОтветьте клиенту для подтверждения записи.`;
     try{await telegram(msg);}catch(e){console.error(e.message);}
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify({message:'Заявка принята! Я свяжусь с тобой для подтверждения.'}));
   }
