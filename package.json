@@ -1,0 +1,12 @@
+{
+  "name": "titova-nails",
+  "version": "1.0.0",
+  "description": "TITOVA NAILS online booking",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
