@@ -34,7 +34,7 @@ const server=http.createServer(async(req,res)=>{
       'Cache-Control':'public, max-age=86400'
     });
     return fs.createReadStream(path.join(__dirname,'favicon.png')).pipe(res);
-  }  if(req.method==='GET' && /^\/work-\d{2}\.jpg$/.test(url.pathname)){
+  }  if(req.method==='GET' && /^\/(?:work-\d{2}|titova)\.jpg$/.test(url.pathname)){
     const file = path.join(__dirname, url.pathname.slice(1));
     if(!fs.existsSync(file)){
       res.writeHead(404);
