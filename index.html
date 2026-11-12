@@ -32,12 +32,151 @@
 <section class="section booking" id="booking"><div class="wrap"><div class="section-head"><div class="eyebrow">Выбери удобное окошко</div><h2>Онлайн-запись</h2><p>Выбери дату в календаре и самостоятельно введи удобное время по расписанию</p></div><div class="booking-grid"><form class="booking-card" id="bookingForm"><div class="field"><label for="date">1. Дата</label><input id="date" name="date" type="date" required></div><div class="field"><label for="time">2. Время</label><div id="timeSlots" class="time-slots">
   <p class="tiny">Сначала выбери дату в календаре.</p>
 </div><p class="tiny" id="timeHint">Сначала выбери дату в календаре. Затем введи время по расписанию ниже.</p></div><div class="field"><label for="service">3. Услуга</label><select id="service" name="service" required><option value="">Выбери услугу</option><option>Гигиенический маникюр — 500 ₽</option><option>Маникюр с покрытием — 1 000 ₽</option><option>Наращивание — 1 100 ₽</option><option>Снятие без покрытия — 200 ₽</option><option>Дизайн — 100 ₽</option></select></div><div class="field"><label for="name">Твоё имя</label><input id="name" maxlength="80" placeholder="Как к тебе обращаться" required></div><div class="field"><label for="contact">Как с тобой связаться?</label><input id="contact" type="text" maxlength="100" placeholder="@telegram, ссылка VK или номер телефона" required></div><button class="btn" type="submit" style="width:100%">ОТПРАВИТЬ ЗАЯВКУ</button><div class="notice" id="notice" role="status"></div><p class="tiny">После отправки заявки я свяжусь с тобой для подтверждения записи.</p></form><aside class="booking-info"><h3>Твоё время для себя ♡</h3><p>Выбери подходящую дату и свободное время. Если окошко уже занято, его нельзя будет забронировать повторно.</p><div class="schedule"><div><span>Пн, Вт, Чт, Пт</span><b>09:00 · 18:30</b></div><div><span>Среда</span><b>16:00 · 19:00</b></div><div><span>Суббота, воскресенье</span><b>10:00–17:00</b></div></div><p class="hint">Принимаю в центре Саратова. Точный адрес сообщу при подтверждении записи.</p></aside></div></div></section></main><footer class="footer"><strong>TITOVA NAILS</strong><p>МАНИКЮР, КОТОРЫЙ ТЕБЕ ИДЁТ</p></footer>
+
 <script>
-const dateInput=document.getElementById('date'),timeInput=document.getElementById('time'),notice=document.getElementById('notice');
-const now=new Date();const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);dateInput.min=today;
-function slotsForSelectedDate(date){const day=new Date(date+'T12:00:00').getDay();if(day===0||day===6)return Array.from({length:8},(_,i)=>String(10+i).padStart(2,'0')+':00');if(day===3)return ['16:00','19:00'];return ['09:00','18:30'];}
-function updateTimeHint(){timeInput.value='';if(!dateInput.value){document.getElementById('timeHint').textContent='Сначала выбери дату в календаре.';return;}const slots=slotsForSelectedDate(dateInput.value);document.getElementById('timeHint').textContent='Для выбранного дня доступны: '+slots.join(', ')+'. Введи одно из этих значений.';timeInput.min=slots[0];timeInput.max=slots[slots.length-1];}
-function showNotice(msg,type){notice.textContent=msg;notice.className='notice '+type;}
-dateInput.addEventListener('change',updateTimeHint);updateTimeHint();
-document.getElementById('bookingForm').addEventListener('submit',async e=>{e.preventDefault();const date=dateInput.value,time=timeInput.value,allowed=slotsForSelectedDate(date);if(!date||!allowed.includes(time)){showNotice('Пожалуйста, введи время из расписания для выбранного дня: '+allowed.join(', ')+'.','err');return;}const payload={date,time,service:document.getElementById('service').value,name:document.getElementById('name').value.trim(),contact:document.getElementById('contact').value.trim()};const btn=e.submitter;btn.disabled=true;btn.textContent='ОТПРАВЛЯЕМ…';try{const r=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Не удалось отправить заявку');showNotice(d.message,'ok');e.target.reset();updateTimeHint();}catch(err){showNotice(err.message==='Failed to fetch'?'Не удалось связаться с сервером. Для отправки записи сайт должен быть опубликован и подключён к серверу.':err.message,'err');}finally{btn.disabled=false;btn.textContent='ОТПРАВИТЬ ЗАЯВКУ';}});
-</script></body></html>
+const dateInput = document.getElementById('date');
+const timeSlots = document.getElementById('timeSlots');
+const timeHint = document.getElementById('timeHint');
+const notice = document.getElementById('notice');
+const form = document.getElementById('bookingForm');
+
+let selectedTime = '';
+
+const now = new Date();
+const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  .toISOString().slice(0, 10);
+
+dateInput.min = today;
+
+function showNotice(message, type) {
+  notice.textContent = message;
+  notice.className = 'notice ' + type;
+}
+
+function renderSlots(slots) {
+  timeSlots.innerHTML = '';
+  selectedTime = '';
+
+  const available = slots.filter(slot => slot.available);
+
+  if (available.length === 0) {
+    timeSlots.innerHTML = '<p class="tiny">На эту дату свободных окошек нет. Выбери другой день.</p>';
+    return;
+  }
+
+  available.forEach(slot => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'time-slot';
+    button.textContent = slot.time;
+
+    button.addEventListener('click', () => {
+      selectedTime = slot.time;
+
+      timeSlots.querySelectorAll('.time-slot').forEach(item => {
+        item.classList.remove('selected');
+      });
+
+      button.classList.add('selected');
+    });
+
+    timeSlots.appendChild(button);
+  });
+}
+
+async function loadSlots() {
+  selectedTime = '';
+  timeSlots.innerHTML = '<p class="tiny">Загружаем свободное время...</p>';
+  timeHint.textContent = 'Выбери свободное окошко.';
+  notice.className = 'notice';
+
+  if (!dateInput.value) {
+    timeSlots.innerHTML = '<p class="tiny">Сначала выбери дату в календаре.</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      '/api/availability?date=' + encodeURIComponent(dateInput.value)
+    );
+
+    if (!response.ok) {
+      throw new Error('Не удалось загрузить свободное время.');
+    }
+
+    const data = await response.json();
+    renderSlots(data.slots || []);
+
+    if (!data.slots || data.slots.length === 0) {
+      timeSlots.innerHTML = '<p class="tiny">На эту дату нет доступных записей.</p>';
+    }
+  } catch (error) {
+    timeSlots.innerHTML = '<p class="tiny">Не удалось загрузить время. Попробуй обновить страницу.</p>';
+  }
+}
+
+dateInput.addEventListener('change', loadSlots);
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const date = dateInput.value;
+  const service = document.getElementById('service').value;
+  const name = document.getElementById('name').value.trim();
+  const contact = document.getElementById('contact').value.trim();
+
+  if (!date || !selectedTime || !service || !name || !contact) {
+    showNotice('Выбери дату, свободное время и заполни все поля.', 'err');
+    return;
+  }
+
+  const payload = {
+    date,
+    time: selectedTime,
+    service,
+    name,
+    contact
+  };
+
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'ОТПРАВЛЯЕМ…';
+
+  try {
+    const response = await fetch('/api/book', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Не удалось отправить заявку.');
+    }
+
+    showNotice(data.message, 'ok');
+    form.reset();
+    selectedTime = '';
+    timeSlots.innerHTML = '<p class="tiny">Сначала выбери дату в календаре.</p>';
+    timeHint.textContent = 'Выбери свободное окошко.';
+
+  } catch (error) {
+    showNotice(error.message, 'err');
+
+    if (responseErrorIsConflict(error)) {
+      await loadSlots();
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = 'ОТПРАВИТЬ ЗАЯВКУ';
+  }
+});
+
+function responseErrorIsConflict(error) {
+  return error.message.includes('уже заняли');
+}
+</script>
+</body></html>
