@@ -28,6 +28,12 @@ const server=http.createServer(async(req,res)=>{
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify({message:'Заявка принята! Я свяжусь с тобой для подтверждения.'}));
   }
   if(req.method==='GET'&&(url.pathname==='/'||url.pathname==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return fs.createReadStream(path.join(__dirname,'index.html')).pipe(res);}
-  res.writeHead(404);res.end('Not found');
+    if(req.method==='GET'&&url.pathname==='/favicon.png'){
+    res.writeHead(200,{
+      'Content-Type':'image/png',
+      'Cache-Control':'public, max-age=86400'
+    });
+    return fs.createReadStream(path.join(__dirname,'favicon.png')).pipe(res);
+  }res.writeHead(404);res.end('Not found');
 });
 server.listen(PORT,()=>console.log(`TITOVA NAILS запущен: http://localhost:${PORT}`));
